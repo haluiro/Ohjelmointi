@@ -11,5 +11,11 @@ def toiminto_down():
     pen.forward(10)
 
 screen.listen() #Tässä kerromme: "kuuntele screen käyttäjää"
+pen.forward(20)
+pen.right(90)
+pen.forward(50)
+pen.left(45)
+pen.forward(30)
+pen.color("red")
 screen.onkey(toiminto_up, "Up") #Tässä kerromme: "Jos käyttäjä painaa "Up", niin suorita aliohjelma toiminto_up
 turtle.mainloop() #Tässä kerromme: "pidä yllä screeniä ja odota käyttäjän syötteitä."
