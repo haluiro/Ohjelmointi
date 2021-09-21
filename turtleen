@@ -1,0 +1,15 @@
+import turtle
+pen = turtle.Turtle() #Luodaan "turtle-otus", jolla voidaan piirtää screenille kaikenlaista
+screen = turtle.Screen() #Luodaan screen-otus = grafiikkaikkuna = "kangas, jolle turtlella maalaillaan"
+
+def toiminto_up():
+    pen.setheading(90)
+    pen.forward(10)
+
+def toiminto_down():
+    pen.setheading(270)
+    pen.forward(10)
+
+screen.listen() #Tässä kerromme: "kuuntele screen käyttäjää"
+screen.onkey(toiminto_up, "Up") #Tässä kerromme: "Jos käyttäjä painaa "Up", niin suorita aliohjelma toiminto_up
+turtle.mainloop() #Tässä kerromme: "pidä yllä screeniä ja odota käyttäjän syötteitä."
