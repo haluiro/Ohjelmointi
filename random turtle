@@ -1,0 +1,13 @@
+import random 
+import turtle
+
+tim = turtle
+screen = turtle.Screen
+tim.speed(5000)
+tim.hideturtle()
+tim.shape("circle")
+
+for i in range(100):
+  angle = random.randint(0,360)
+  tim.setheading(angle)
+  tim.forward(10)
