@@ -3,19 +3,48 @@ pen = turtle.Turtle() #Luodaan "turtle-otus", jolla voidaan piirtää screenille
 screen = turtle.Screen() #Luodaan screen-otus = grafiikkaikkuna = "kangas, jolle turtlella maalaillaan"
 
 def toiminto_up():
+    screen.tracer(0)
     pen.setheading(90)
-    pen.forward(10)
+    pen.forward(20)
+    screen.update()
+    screen.tracer(1)
 
 def toiminto_down():
+    screen.tracer(0)
     pen.setheading(270)
-    pen.forward(10)
+    pen.forward(20)
+    screen.update()
+    screen.tracer(1)
 
-screen.listen() #Tässä kerromme: "kuuntele screen käyttäjää"
-pen.forward(20)
-pen.right(90)
-pen.forward(50)
-pen.left(45)
-pen.forward(30)
+def toiminto_right():
+    screen.tracer(0)
+    pen.setheading(0)
+    pen.forward(20)
+    screen.update()
+    screen.tracer(1)
+    
+def toiminto_left():
+    screen.tracer(0)
+    pen.setheading(180)
+    pen.forward(20)
+    screen.update()
+    screen.tracer(1)
+
+def toiminto_blue():
+    pen.color("blue")
+    
+
+
+
+screen.listen() #Tässä kerromme: "kuuntelepas grafiikkaikkuna screen käyttäjää"
 pen.color("red")
-screen.onkey(toiminto_up, "Up") #Tässä kerromme: "Jos käyttäjä painaa "Up", niin suorita aliohjelma toiminto_up
+screen.onkey(toiminto_up, "Up")
+screen.onkey(toiminto_down, "Down")
+screen.onkey(toiminto_left, "Left")
+screen.onkey(toiminto_right, "Right")
+screen.onkey(toiminto_blue, "b")
+screen.onkey(toiminto_stop, "s")
+while go == True:
+  pen.forward(3)
+#Tässä kerromme: "Jos käyttäjä painaa "Up"/"Down"/..., niin suorita aliohjelma toiminto_up
 turtle.mainloop() #Tässä kerromme: "pidä yllä screeniä ja odota käyttäjän syötteitä."
