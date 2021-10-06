@@ -43,8 +43,6 @@ screen.onkey(toiminto_down, "Down")
 screen.onkey(toiminto_left, "Left")
 screen.onkey(toiminto_right, "Right")
 screen.onkey(toiminto_blue, "b")
-screen.onkey(toiminto_stop, "s")
-while go == True:
-  pen.forward(3)
+
 #Tässä kerromme: "Jos käyttäjä painaa "Up"/"Down"/..., niin suorita aliohjelma toiminto_up
 turtle.mainloop() #Tässä kerromme: "pidä yllä screeniä ja odota käyttäjän syötteitä."
