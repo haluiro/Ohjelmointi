@@ -1,0 +1,22 @@
+import random 
+import turtle
+
+teksti = input("Kerro tarinasi: ")
+for merkki in teksti:
+  print(merkki.isalpha())
+  
+print("********************************************")
+
+merkit = []
+for j in range(len(teksti)):
+  uusi = True
+  for i in range(len(merkit)):
+    if teksti[j] == merkit[i][0]:
+      merkit[i][1]=merkit[i][1]+1
+      uusi = False
+  
+  if uusi == True:
+    merkit.append([teksti[j], 1])
+  
+for i in range(len(merkit)):
+  print(merkit[i][0]+" : ", merkit[i][1])
