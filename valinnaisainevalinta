@@ -1,0 +1,66 @@
+import numpy as np
+from timeit import default_timer as timer
+import random
+
+palkkeja = 3
+valinnaisaineita = 6 #Tämä luku oltava tasan sama kuin forms-kaavakkeen vaihtoehtojen
+opiskelijoita = 100 #Tämä luku poimitaan forms-kaavakkeesta, montako vastaajaa!
+vaaditut_opintopisteet = 15*np.ones(opiskelijoita)
+opintopisteet_aine = 5*np.ones(valinnaisaineita)
+palkkinumerot = [0,0,1,1,2,2]
+opiskelijamaksimit = 25*np.ones(valinnaisaineita)
+
+
+toiveet = []
+for i in range(opiskelijoita):
+    toiveet.append([0,1,2,3,4,5])
+
+#toiveet[i] tulee olemaan opiskelijan mieluusjärjestetty lista kurssinumeroista
+#varaudutaan tällä muotoilulla siihen, että lista ei kaikilla välttämättä yhtä pitkä...
+#oikeasti siis muotoillaan tämä lista formsin perusteella
+
+toteutus = np.zeros((opiskelijoita, valinnaisaineita)) #toteutus[i,j] = 1, jos oppilas i saa valinnaisaineen j, muuten nolla
+
+#Tähän syötetään valinnaisaineiden todelliset opintopisteet ja palkkinumerot yksitellen forms-kaavakkeen indeksointia vastaavaksi
+#Luku voidaan toteuttaa myös excel-taulukosta, kun sellainen saadaan tehtyä (koodia muutetaan vastaavaksi)
+
+cont = True
+opintopisteet_opiskelija = np.zeros(opiskelijoita)
+valittu_kurssille = np.zeros(valinnaisaineita)
+palkki_valittu = np.zeros((opiskelijoita,palkkeja))
+
+maksimikierrokset = 500
+arvonta = np.arange(opiskelijoita)
+laskuri = 0
+pariton_kierros = True
+valinta_kesken = np.ones(opiskelijoita)
+
+while cont:
+    if pariton_kierros:
+        random.shuffle(arvonta) #arvonta[i] = sen opiskelijan indeksi, joka saa valita i.nä
+        pariton_kierros = False
+    else:
+        arvonta = np.flip(arvonta)
+        pariton_kierros = True
+
+    for i in range(len(arvonta)):
+        opiskelijaid= arvonta[i]
+        if opintopisteet_opiskelija[opiskelijaid] < vaaditut_opintopisteet[opiskelijaid]-0.5:
+            for i in range(len(toiveet[opiskelijaid])):
+                kurssiindeksi = toiveet[opiskelijaid][i]
+                palkkiindeksi = palkkinumerot[kurssiindeksi]
+                if (valittu_kurssille[kurssiindeksi] < opiskelijamaksimit[kurssiindeksi]) \
+                        and (toteutus[opiskelijaid,kurssiindeksi] < 0.5 ) \
+                        and (palkki_valittu[opiskelijaid,palkkiindeksi] < 0.5):
+                    toteutus[opiskelijaid,kurssiindeksi] = 1
+                    palkki_valittu[opiskelijaid, palkkiindeksi] = 1
+                    valittu_kurssille[kurssiindeksi] = valittu_kurssille[kurssiindeksi]+1
+                    opintopisteet_opiskelija[opiskelijaid] = opintopisteet_opiskelija[opiskelijaid]+opintopisteet_aine[kurssiindeksi]
+                    break
+        else:
+            valinta_kesken[opiskelijaid] = 0
+    laskuri = laskuri+1
+    if np.sum(valinta_kesken) < 1:
+        cont = False
+    if laskuri > maksimikierrokset:
+        cont = False
