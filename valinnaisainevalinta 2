@@ -1,0 +1,227 @@
+import numpy as np
+from timeit import default_timer as timer
+import random
+import pandas as pd
+import openpyxl
+import xlsxwriter
+
+#C:\Users\Koti\Desktop\Testitiedostoja pythonille
+
+df = pd.read_excel (r'C:\Users\Koti\Desktop\Testitiedostoja pythonille\valinnaisaineiden_tiedot_testi.xlsx')
+print(pd.DataFrame.keys(df))
+
+palkkinumerot = []
+for i in range(len(df.index)):
+    palkkinumerot.append(df.loc[i,'palkkinumero'])
+
+opintopisteet_aine = []
+for i in range(len(df.index)):
+    a = df.loc[i, 'opintopisteet ']
+    if df.loc[i, 'koko vuosi = 1, puoli vuotta = 0'] > 0.5:
+        a= a/2
+    opintopisteet_aine.append(a)
+
+opiskelijamaksimit = []
+for i in range(len(df.index)):
+    opiskelijamaksimit.append(df.loc[i,'osallistujamaksimi'])
+
+index_list = list(df.index.values)
+valinnaisaineita = len(df.index)
+
+valinnaisaine_nimet = []
+for i in range(len(df.index)):
+    valinnaisaine_nimet.append(df.loc[i,'Valinnaisaine'])
+
+palkkijoukko = set()
+for i in range(len(df.index)):
+    palkkijoukko.add(df.loc[i,'palkkinumero'])
+palkkeja = len(palkkijoukko)
+
+kielletyt_valinnat = []
+for i in range(len(df.index)):
+    merkkijono = str(df.loc[i,'Kielletyt valinnat'])
+    a = merkkijono.split(';')
+    kielletyt = []
+    if not a == ['nan']:
+        for k in range(len(a)):
+            kielletyt.append(int(a[k]))
+    kielletyt_valinnat.append(kielletyt)
+
+
+
+#----------- ALLA OLEVA LUETAAN FORMS-VASTAUKSISTA TEHDYSTÄ EXCELISTÄ--------------------
+df2 = pd.read_excel(r'C:\Users\Koti\Desktop\Testitiedostoja pythonille\vastaukset.xlsx')
+keylist = list(pd.DataFrame.keys(df2).values)
+toiveet = []
+
+for i in range(len(df2.index)):
+    toive_merkkijono = df2.loc[i, 'Toive']
+    a = toive_merkkijono.split(',')
+    toive = []
+    for k in range(len(a)):
+        toive.append(int(a[k]))
+    toiveet.append(toive)
+
+opiskelijoita = len(df2.index) #Tämä luku poimitaan forms-kaavakkeesta, montako vastaajaa!
+nimet = []
+for i in range(opiskelijoita):
+    nimet.append(df2.loc[i,'Nimi'])
+
+
+#------Testausta varten (koska vastaajia ei löydy testaukseen) lisätään keiniotekoisesti vastaajia------
+etunimilista = ['Matti', 'Pekka', 'Liisa', 'Tomi', 'Sarita', 'Miska', 'Kerttu', 'Ilpo', 'Jose', 'Milena', 'Kuura', 'Kaarna', 'Vilja', 'Seela', 'Pauli']
+sukunimilista = ['Virtanen', 'Korhonen', 'Nieminen', 'Hänninen', 'Varis', 'Korppi', 'Tiainen', 'Koskela', 'Fernandez', 'Kakko']
+
+for etunimi in etunimilista:
+    for sukunimi in sukunimilista:
+        nimet.append(etunimi + " " + sukunimi)
+        toive = np.arange(valinnaisaineita)
+        random.shuffle(toive)
+        toiveet.append(toive)
+        opiskelijoita = opiskelijoita +1
+
+vaaditut_opintopisteet = 8*np.ones(opiskelijoita) #nämä luvut poimitaan jostain
+
+monesko_toive = valinnaisaineita*np.ones((opiskelijoita,valinnaisaineita))
+for i in range(opiskelijoita):
+    for k in range(len(toiveet[i])):
+        monesko_toive[i,toiveet[i][k]] = k
+
+#Edellä saatu lista toiveet[i] on siis opiskelijan i mieluusjärjestetty lista kurssinumeroista
+#varaudutaan tällä muotoilulla siihen, että lista ei kaikilla välttämättä yhtä pitkä...
+#--------------------------------------------------------------------------------------
+
+toteutus = np.zeros((opiskelijoita, valinnaisaineita))
+#Lopulta tulee olemaan niin, että toteutus[i,j] = 1, jos oppilas i saa valinnaisaineen j, muuten nolla
+
+
+#-------------------Seuraavaksi itse valinta-algoritmi---------------
+
+cont = True
+opintopisteet_opiskelija = np.zeros(opiskelijoita)
+valittu_kurssille = np.zeros(valinnaisaineita)
+palkki_valittu = np.zeros((opiskelijoita,palkkeja))
+
+maksimikierrokset = 500
+arvonta = np.arange(opiskelijoita)
+laskuri = 0
+pariton_kierros = True
+valinta_kesken = np.ones(opiskelijoita)
+
+monesko_valittu = []
+for i in range(opiskelijoita):
+    to_add = []
+    for k in range(palkkeja):
+        to_add.append('-')
+    monesko_valittu.append(to_add)
+
+
+#Valitaan ensiksi ykköspalkkiin simppeli valinta (eli kaikille isokuoro = 3):
+for i in range(opiskelijoita):
+    toteutus[i,3] = 1
+    palkki_valittu[i,0]=1
+    monesko_valittu[i][0]=monesko_toive[i,3]
+    valittu_kurssille[3] = valittu_kurssille[3]+1
+    opintopisteet_opiskelija[i] = opintopisteet_opiskelija[i] + opintopisteet_aine[3]
+
+while cont:
+    if pariton_kierros:
+        random.shuffle(arvonta) #arvonta[i] = sen opiskelijan indeksi, joka saa valita i.nä
+        pariton_kierros = False
+    else:
+        arvonta = np.flip(arvonta)
+        pariton_kierros = True
+
+    for i in range(len(arvonta)):
+        opiskelijaid= arvonta[i]
+        if opintopisteet_opiskelija[opiskelijaid] < vaaditut_opintopisteet[opiskelijaid]-0.5:
+            for i in range(len(toiveet[opiskelijaid])):
+                kurssiindeksi = toiveet[opiskelijaid][i]
+                palkkiindeksi = palkkinumerot[kurssiindeksi]-1
+                sallittu = True
+                for k in range(len(kielletyt_valinnat[kurssiindeksi])):
+                    if toteutus[opiskelijaid, kielletyt_valinnat[kurssiindeksi][k]] == 1:
+                        sallittu = False
+                        break
+
+                if (valittu_kurssille[kurssiindeksi] < opiskelijamaksimit[kurssiindeksi]) \
+                        and (toteutus[opiskelijaid,kurssiindeksi] < 0.5 ) \
+                        and (palkki_valittu[opiskelijaid,palkkiindeksi] < 0.5)\
+                        and sallittu:
+                    toteutus[opiskelijaid,kurssiindeksi] = 1
+                    monesko_valittu[opiskelijaid][palkkiindeksi] = monesko_toive[opiskelijaid, kurssiindeksi]
+                    palkki_valittu[opiskelijaid, palkkiindeksi] = 1
+                    valittu_kurssille[kurssiindeksi] = valittu_kurssille[kurssiindeksi]+1
+                    opintopisteet_opiskelija[opiskelijaid] = opintopisteet_opiskelija[opiskelijaid]+opintopisteet_aine[kurssiindeksi]
+                    break
+        else:
+            valinta_kesken[opiskelijaid] = 0
+    laskuri = laskuri+1
+    if np.sum(valinta_kesken) < 1:
+        cont = False
+    if laskuri > maksimikierrokset:
+        cont = False
+
+#-----------------------valinta suoritettu---------------
+
+#Tähän voisi kehittää vielä valintaa hiovat tarkennukset. Esimerkiksi
+#Käy läpi kaikki opiskelijat ja etsi ne, joilla on yli 20. mieluinen valinta ja
+#pyri vaihtamaan kyseisessä palkissa olevan opiskelijan 
+
+#--------------Seuraavaksi valintojen tulostus exceliin----------------------
+
+valitut = []
+for i in range(valinnaisaineita):
+    osallistujat = []
+    for j in range(opiskelijoita):
+        if toteutus[j,i] == 1:
+            osallistujat.append(nimet[j])
+    valitut.append(osallistujat)
+
+#Nyt valitut[i] on kaikille i (i valinnaisaineindeksi) lista nimiä nämä voisi aakkosjärjestääkin jo tässä!
+
+datafreimit = []
+for i in range(valinnaisaineita):
+    new_df = pd.DataFrame({valinnaisaine_nimet[i]: valitut[i]})
+    datafreimit.append(new_df)
+
+
+palkkidatafreimit = []
+for i in range(palkkeja):
+    datafreimi = pd.DataFrame()
+    for k in range(valinnaisaineita):
+        if palkkinumerot[k] == i+1:
+            to_add = datafreimit[k]
+            datafreimi = pd.concat([datafreimi,to_add], axis=1)
+
+    palkkidatafreimit.append(datafreimi)
+
+palkkidatafreimit[0].to_excel(r'C:\Users\Koti\Desktop\Testitiedostoja pythonille\output.xlsx', index = False, sheet_name="Palkki 1")
+for i in range(1,len(palkkidatafreimit)):
+    to_add = palkkidatafreimit[i]
+    with pd.ExcelWriter(r'C:\Users\Koti\Desktop\Testitiedostoja pythonille\output.xlsx', engine='openpyxl', mode='a') as writer:
+        to_add.to_excel(writer, index= False, sheet_name="Palkki "+ str(i+1))
+
+
+aakkoset = ['A','B','C','D','E','F','G','H','I','J']
+workbook = openpyxl.load_workbook(r'C:\Users\Koti\Desktop\Testitiedostoja pythonille\output.xlsx')
+for i in range(palkkeja):
+    sheet = workbook["Palkki "+ str(i+1)]
+    for col in aakkoset:
+        sheet.column_dimensions[col].width = 40
+workbook.save(r'C:\Users\Koti\Desktop\Testitiedostoja pythonille\output.xlsx')
+
+#Lasketaan jokin mittari sille, millaisia valinnat olivat:
+valintojen_mieluisuudet = []
+for i in range(opiskelijoita):
+    mieluisuusvektori = []
+    for k in range(valinnaisaineita):
+        if toteutus[i,k] == 1:
+            for p in range(len(toiveet[i])):
+                if toiveet[i][p] == k:
+                    mieluisuusvektori.append(p)
+    valintojen_mieluisuudet.append(mieluisuusvektori)
+    print(mieluisuusvektori)
+
+for i in range(opiskelijoita):
+    print(monesko_valittu[i])
