@@ -1,0 +1,55 @@
+import turtle
+ope = turtle.Turtle()  
+ikkuna = turtle.Screen()
+ikkuna.tracer(0)
+#Luo tässä oma turtlesi samalla nimellä kuin teit sen omassa koodissasi
+
+def open_kuvio(paikka):
+  ope.hideturtle()
+  ope.penup()
+  ope.goto(paikka)
+  ope.setheading(0)
+  ope.pendown()
+  ope.forward(50)
+  ope.right(90)
+  ope.forward(50)
+  ope.right(90)
+  ope.forward(50)
+  ope.right(90)
+  ope.forward(50)
+
+def oma_kuvio():
+  #Kopioi tähän se koodi, jolla loit oman kuviosi 
+  #(lukuunottamatta sitä riviä, jolla loit turtlen)
+  ikkuna.update()
+
+paikka = (80,80) 
+open_kuvio(paikka)
+oma_kuvio()
+
+#Tehtävä 0: aja koodi tässä kohtaa
+
+#Tehtävä 1: Muuta tätä koodia niin, että kuviosi (tai opettajan kuvio) piirtyy 
+# a) viisi kertaa
+# b) sata kertaa (käytä silmukkaa!<--muistellaan yhdessä miten tehtiin)
+
+
+#Koska kuvio piirtyi aina samaan kohtaan, ei lopputulos ollut vielä kovin 
+#mielenkiintoinen.
+
+#Poista alta kommenttimerkit ja aja koodi uudestaan. Mitä tapahtuu?
+
+#for i in range(100):
+#  open_kuvio((i,i))
+#  ikkuna.update()
+
+#Muuta koodia niin, että aina kun kuvio piirretään kerran silmukan sisällä ja
+#tulos näytetään ruudulla ikkuna.update()-komennolla, niin se pyyhitäänkin pois
+#samantien. Koska ope piirsi kyseisen kuvion niin tämä tapahtuu käytännössä kirjoittamalla
+#ope.clear() komento ikkuna.update()-rivin alapuolelle (ope.clear() pyyhkii kyseisen ope-turtlen piirroksen ruudulta pois). 
+#Tee siis näin ja aja koodi muutoksen jälkeen.
+
+
+
+# Miten voisit järjestää niin, että saisit myös oman kuviosi liikkumaan 
+#ja "elämään" ruudulla?
