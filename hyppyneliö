@@ -1,0 +1,36 @@
+import turtle
+import random
+import math
+
+pelle = turtle.Turtle()
+ikkuna = turtle.Screen()
+ikkuna.tracer(0)
+pelle.hideturtle()
+def oma_kuvio(paikka):
+  pelle.penup()
+  pelle.goto(paikka)
+  pelle.pendown()
+  pelle.setheading(0)
+  pelle.forward(40)
+  pelle.right(90)
+  pelle.forward(40)
+  pelle.right(90)
+  pelle.forward(40)
+  pelle.right(90)
+  pelle.forward(40)
+  ikkuna.update()
+
+def hoplaa():
+  paikka_x = 0
+  paikka_y = 0
+  alkunopeus = 6
+  for i in range(130):
+    siirtyma_x = 0
+    siirtyma_y = alkunopeus-i/10
+    paikka_x = paikka_x + siirtyma_x
+    paikka_y = paikka_y + siirtyma_y
+    oma_kuvio((paikka_x,paikka_y))
+    pelle.clear()
+  
+while True:
+  hoplaa()
