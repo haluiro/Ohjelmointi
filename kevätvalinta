@@ -1,0 +1,459 @@
+import numpy as np
+from timeit import default_timer as timer
+import random
+import pandas as pd
+import openpyxl
+import xlsxwriter
+import copy
+
+opintopisteraja = 15
+
+kurssitiedotdf = pd.read_excel(r'C:\Testitiedostoja Pythonille\valinnaisaineiden_tiedot_kevät2023.xlsx')
+print(pd.DataFrame.keys(kurssitiedotdf))
+
+oppilastiedotdf = pd.read_excel(r'C:\Testitiedostoja Pythonille\oppilastiedotsyksy2022.xlsx')
+print(pd.DataFrame.keys(oppilastiedotdf))
+
+formsdf = pd.read_excel(r'C:\Testitiedostoja Pythonille\forms_vastaukset_kevät2023.xlsx')
+#Lisättävä tämän niminen excel tuonne kansioon ja
+#Tehdään sarakkeiksi Etunimi, Sukunimi, Sukupuoli, Linja, Toive
+
+class oppilas:
+    def __init__(self, ID, etunimi="tuntematon", sukunimi = "tuntematon", sukupuoli="tuntematon", linja="tuntematon"):
+        self.etunimi = etunimi
+        self.sukunimi = sukunimi
+        self.ID = ID
+        self.kokonimi = etunimi + " "+sukunimi
+        self.sukupuoli = sukupuoli
+        self.linja = linja
+        self.syksyn_kurssit= {}
+        self.kotsan_kursseja_syksylla = 0
+        self.toivelista_kevat=[]
+        self.ollut_liikuntaa_syksylla = False
+        self.ollut_kotsaa_syksylla = False
+        self.kielletyt_valinnat=set() #Stabiili lista kielletyistä kursseista, tiedetään jo prosessin aluksi
+        self.kevaan_kurssit = [] #Dynaaminen
+        self.opintopisteet_kevat = 0 #Dynaaminen
+        self.opintopisteet_syksy = 0
+        self.opintopisteet_yht = 0 #Dynaaminen
+        self.valinta_valmis = False #Dynaaminen
+        self.palkkivalinnat_nimet = [] #Dynaaminen päivitetään vasta tulostusvaiheessa
+
+class kurssi:
+    def __init__(self, indeksi, ID, max = 100, nimi = "tuntematon", opintopisteet_syksy = 0, opintopisteet_kevat = 0, palkki_ID = 0 ):
+        self.nimi = nimi
+        self.indeksi = indeksi
+        self.vain_syksyn_kurssi = False
+        self.vain_kevaan_kurssi = True
+        self.ID = ID
+        self.max = max
+        self.sukupuoli = "Molemmat"
+        self.palkkiin_sidottu = True
+        self.palkki_ID = palkki_ID
+        self.opintopisteet_syksy = opintopisteet_syksy
+        self.opintopisteet_kevat = opintopisteet_kevat
+        self.opintopisteet = opintopisteet_syksy + opintopisteet_kevat
+        self.kokovuosi = False
+        self.vain_eka_viikko = False
+        self.vain_toka_viikko = False
+        self.kielletyt_kevaan_parit = []
+        self.kielletyt_syksyn_parit = []
+        self.kielletty_linja = 9999
+        self.valintaa_hidastavat = []
+        self.oppilaat = [] #Dynaaminen
+        self.oppilaat_nimet = [] #Dynaaminen, päivitetään vasta tulostusvaiheessa!
+        self.opiskelijoita = 0 #Dynaaminen
+        self.ensisijaiset = set() #Stabiili joukko, eroaa epätyhjästä liikunnan ja kotsan kurssien kohdalla.
+        self.potentiaaliset_uudet = set() #Dynaaminen joukko, pienenee valintaprosessin aikana, poistetaan täältä jo alussa mahdottomat
+        self.erityishalukkaat = set() #Stabiili joukko, laitetaan tänne kaikki, joille kyseinen kurssi on kahden joukossa kyseisessä palkissa
+        self.ensisijaisuusehto_pois = True
+        self.full = False #Dynaaminen
+
+class palkki:
+    def __init__(self, ID, nimi):
+        self.nimi = nimi
+        self.ID = ID
+        self.kurssit = []
+
+kurssit = []
+oppilaat = []
+#Seuraavaksi luodaan kurssi-oliot ja lisätään kurssit-listaan, kerätään tiedot kurssitiedot-datafreimistä
+for i in range(len(kurssitiedotdf.index)):
+    uusi_kurssi = kurssi(i,kurssitiedotdf.loc[i, "ID-numero"])
+    uusi_kurssi.nimi = kurssitiedotdf.loc[i, "Valinnaisaine"]
+    uusi_kurssi.vain_eka_viikko = False
+    uusi_kurssi.vain_toka_viikko = False
+    if kurssitiedotdf.loc[i, "vain eka viikko=1, vain toinen viikko=2, tyhjä=tyhjä"] == 1:
+        uusi_kurssi.vain_eka_viikko = True
+        uusi_kurssi.vain_toka_viikko = False
+    if kurssitiedotdf.loc[i, "vain eka viikko=1, vain toinen viikko=2, tyhjä=tyhjä"] == 2:
+        uusi_kurssi.vain_eka_viikko = False
+        uusi_kurssi.vain_toka_viikko = True
+
+    if kurssitiedotdf.loc[i, 'koko vuosi = 1, puoli vuotta = 0'] == 1:
+        uusi_kurssi.kokovuosi = True
+        uusi_kurssi.vain_kevaan_kurssi = False
+    else: uusi_kurssi.kokovuosi = False
+    if kurssitiedotdf.loc[i, 'sukupuoli'] == "Nainen" or kurssitiedotdf.loc[i, 'sukupuoli'] == "Mies":
+        uusi_kurssi.sukupuoli = kurssitiedotdf.loc[i, 'sukupuoli']
+    else: uusi_kurssi.sukupuoli = "Molemmat"
+    if kurssitiedotdf.loc[i, "ei palkkiin sidottu"] == 1:
+        uusi_kurssi.palkkiin_sidottu = False
+        uusi_kurssi.palkki_ID = 999
+    uusi_kurssi.opintopisteet = kurssitiedotdf.loc[i,"opintopisteet"]
+    if uusi_kurssi.kokovuosi == True:
+        uusi_kurssi.opintopisteet_syksy = kurssitiedotdf.loc[i,"opintopisteet"]/2
+        uusi_kurssi.opintopisteet_kevat = kurssitiedotdf.loc[i, "opintopisteet"] / 2
+    else:
+        uusi_kurssi.opintopisteet_syksy = 0
+        uusi_kurssi.opintopisteet_kevat = kurssitiedotdf.loc[i,"opintopisteet"]
+    uusi_kurssi.max = kurssitiedotdf.loc[i, 'osallistujamaksimi']
+    uusi_kurssi.kielletty_linja = kurssitiedotdf.loc[i, 'ei kuulu linjalle']
+    merkkijono = str(kurssitiedotdf.loc[i, 'kielletyt valinnat'])
+    a = merkkijono.split(';')
+    if not a == ['nan']:
+        for k in range(len(a)):
+            uusi_kurssi.kielletyt_kevaan_parit.append(int(a[k]))
+    if uusi_kurssi.kokovuosi == False:
+        for k in range(len(oppilastiedotdf.index)):
+            uusi_kurssi.potentiaaliset_uudet.add(k)
+    kurssit.append(uusi_kurssi)
+
+
+#Vielä pitäisi päivittää kaikille kursseille ensisijaiset, alustaa potentiaalisten joukko, sekä erityishalukkaiden joukko.
+#Nämä on kuitenkin tehtävä vasta kun oppilaat tietoineen on luotu!
+#Luodaan siis oppilaat tietoineen seuraavaksi:
+
+for i in range(len(oppilastiedotdf.index)):
+    uusi_oppilas = oppilas(i)
+    uusi_oppilas.kokonimi = oppilastiedotdf.loc[i, 'Nimi']
+    uusi_oppilas.linja = oppilastiedotdf.loc[i, 'Linja']
+    uusi_oppilas.opintopisteet_syksy = oppilastiedotdf.loc[i, 'Opintopisteet']
+    uusi_oppilas.opintopisteet_yht = uusi_oppilas.opintopisteet_syksy
+    merkkijono = str(oppilastiedotdf.loc[i, 'Nimi'])
+    a = merkkijono.split(' ')
+    if len(a) > 1:
+        uusi_oppilas.etunimi=a[0]
+        uusi_oppilas.sukunimi=a[1]
+    uusi_oppilas.ID = i
+    palkit = ["Palkki 1", "Palkki 2", "Palkki 3", "Palkki 4", "Palkki 5 eka viikko", "Palkki 5 toka viikko"]
+    for palkki in palkit:
+        uusi_oppilas.syksyn_kurssit.add(oppilastiedotdf.loc[i, palkki])
+    spesiaalit = ["Piano", "Urut", "Viulu", "Naiskuoro", "Vaikuttaminen"]
+    for spesiaali in spesiaalit:
+        if oppilastiedotdf.loc[i, spesiaali] == 1:
+            uusi_oppilas.syksyn_kurssit.add(spesiaali)
+    #Voidaan nyt päivittää heti uusi_oppilas.kevaan_kurssit: Samalla päivitetään kurssien osallistujalistat
+    for kurssinimi in uusi_oppilas.syksyn_kurssit:
+        for j in range(len(kurssit)):
+            if kurssit[j].nimi == kurssinimi and kurssit[j].kokovuosi:
+                uusi_oppilas.kevaan_kurssit.append(j)
+                kurssit[j].oppilaat.append(i)
+                to_add = 0
+                if not(kurssinimi == "Isokuoro P1 Eero" and uusi_oppilas.linja == "Musiikki"):
+                    to_add = kurssit[j].opintopisteet_kevat
+                uusi_oppilas.opintopisteet_yht = uusi_oppilas.opintopisteet_yht+to_add
+                uusi_oppilas.opintopisteet_kevat = uusi_oppilas.opintopisteet_kevat+to_add
+                uusi_oppilas.kielletyt_valinnat.add(j)
+
+    kotsan_kurssinimet_syksy = {"Syötävää arjesta juhlaan syksy P5 Päivikki", "Syötävää arjesta juhlaan syksy P2 Päivikki","Syötävää arjesta juhlaan syksy P4 Päivikki"}
+    for kurssinimi in uusi_oppilas.syksyn_kurssit:
+        if kurssinimi in kotsan_kurssinimet_syksy:
+            uusi_oppilas.kotsan_kursseja_syksylla = True
+    liikunnan_kurssien_nimet = {"Poikien liikunta 1 syksy P2 Juha", "Poikien liikunta 2 syksy P4 Hannes", "Liikunta tytöt 1 eka viikko P5 Sanna/Eekka", "Liikunta tytöt 2 toka viikko P5 Sanna?"}
+    for kurssinimi in uusi_oppilas.syksyn_kurssit:
+        if kurssinimi in liikunnan_kurssien_nimet:
+            uusi_oppilas.ollut_liikuntaa_syksylla = True
+
+    #Muodostetaan kiellettyjen valintojen lista!
+    #Tehdään tämä niin, että kyseinen lista edustaa kaikkia kursseja, joita uudessa valinnassa ei enää voi valita, eli siihen lisätään myös
+    #syksyltä jatkuvat kurssit (tehty jo edellä). Kyseistä listaa käytetään vain uusia kevään kursseja valitessa.
+    for j in range(len(kurssit)):
+        if uusi_oppilas.linja == kurssit[j].kielletty_linja:
+            uusi_oppilas.kielletyt_valinnat.add(kurssit[j].indeksi)
+
+
+    for j in range(len(formsdf)):
+        if formsdf.loc[j,'Nimi'] == uusi_oppilas.kokonimi:
+            uusi_oppilas.sukupuoli = formsdf.loc[j,'Sukupuoli']
+            merkkijono = str(formsdf.loc[j, 'Toive'])
+            merkkijono = merkkijono.replace(" ", "")
+            toivelista = merkkijono.split(',')
+            lopullinen_toivelista = []
+            for i in range(len(toivelista)):
+                indeksi_toivelistassa = int(toivelista[i])
+                for p in range(len(kurssit)):
+                    if kurssit[p].ID == indeksi_toivelistassa:
+                        kurssin_indeksi = kurssit[p].indeksi #aika turhaa kun kurssit[p].indeksi pitäisi olla p
+                        if kurssin_indeksi not in uusi_oppilas.kielletyt_valinnat:
+                            lopullinen_toivelista.append(kurssin_indeksi)
+
+            uusi_oppilas.toivelista_kevat = lopullinen_toivelista
+            break
+    for j in range(len(kurssit)):
+        if uusi_oppilas.sukupuoli == "Nainen" and kurssit[j].sukupuoli == "Mies":
+            uusi_oppilas.kielletyt_valinnat.add(j)
+        if uusi_oppilas.sukupuoli == "Mies" and kurssit[j].sukupuoli == "Nainen":
+            uusi_oppilas.kielletyt_valinnat.add(j)
+
+#Vielä pitäisi päivittää/alustaa kaikkien kurssien kohdalta potentiaaliset uudet
+#Käytännössä seuraa kielletyistä valinnoista ja syksyltä jatkuvien kurssien johdosta jo yllä tehdyistä valinnoista
+for i in range(len(kurssit)):
+    for j in range(len(oppilaat)):
+        for d in range(len(oppilaat[j].kevaan_kurssit)):
+            toisen_kurssin_indeksi = oppilaat[j].kevaan_kurssit[d]
+            if kurssit[toisen_kurssin_indeksi].palkki_ID == kurssit[i].palkki_ID:
+                poistetaan = True
+                if kurssit[toisen_kurssin_indeksi].vain_eka_viikko == True and kurssit[i].vain_toka_viikko == True:
+                    poistetaan = False
+                if kurssit[toisen_kurssin_indeksi].vain_toka_viikko == True and kurssit[i].vain_eka_viikko == True:
+                    poistetaan = False
+                if kurssit[i].palkkiin_sidottu == False:
+                    poistetaan = False
+                if poistetaan:
+                    kurssit[i].potentiaaliset_uudet.discard(j)
+        if i in oppilaat[j].kielletyt_valinnat:
+            kurssit[i].potentiaaliset_uudet.discard(j)
+
+
+
+#Nyt pitäisi kaikki alustukset olla valmiina. Siirrytään itse valintaan.
+
+cont = True
+opiskelijoita = len(oppilaat)
+jarjestys = np.arange(opiskelijoita)
+random.shuffle(jarjestys)
+mieluisuusarvot = 1000*np.ones(opiskelijoita)
+mieluisuus = []
+for i in range(opiskelijoita):
+    mieluisuus.append([])
+
+kierroslaskuri = 0
+while cont:
+    uusia_valintoja = 0
+    if kierroslaskuri > 0:
+        jarjestys = np.flip(np.argsort(mieluisuusarvot))
+        #mieluisuusarvoja päivitetään joka kierroksella. Mitä pienempi mieluisuusarvo, sitä paremmin
+        # toiveet ovat toteutuneet ja sitä myöhemmin vuoro seuraavalla kierroksella
+
+    for i in range(opiskelijoita):
+        tarve = True
+        oppilasindeksi = jarjestys[i]
+        if oppilaat[oppilasindeksi].opintopisteet_yht > opintopisteraja:
+            tarve = False
+        if tarve:
+            toivelista = oppilaat[oppilasindeksi].toivelista_kevät
+            for j in range(len(toivelista)):
+                kurssiindeksi = toivelista[j]
+                valitaan = True
+                #Tarkistetaan voiko kyseistä kurssia valita oppilaalle:
+                #Ensin että onko tilaa:
+                if kurssit[kurssiindeksi].full:
+                    valitaan = False
+                #Tsekataan sitten, ettei synny ristiriitoja jo valittujen kurssien kanssa:
+                if valitaan:
+                    for p in range(len(oppilaat[oppilasindeksi].kevään_kurssit)):
+                        toisen_kurssin_indeksi = oppilaat[oppilasindeksi].kevään_kurssit[p]
+                        if kurssiindeksi == toisen_kurssin_indeksi:
+                            valitaan = False
+                        if kurssit[toisen_kurssin_indeksi].palkki_ID == kurssit[kurssiindeksi].palkki_ID:
+                            ehto = True
+                            if kurssit[kurssiindeksi].vain_eka_viikko and kurssit[toisen_kurssin_indeksi].vain_toka_viikko:
+                                ehto = False
+                            if kurssit[kurssiindeksi].vain_toka_viikko and kurssit[toisen_kurssin_indeksi].vain_eka_viikko:
+                                ehto = False
+                            if ehto:
+                                valitaan = False
+                        for k in range(len(kurssit[toisen_kurssin_indeksi].kielletyt_kevaan_parit)):
+                            kielletyn_parin_indeksi = kurssit[toisen_kurssin_indeksi].kielletyt_kevaan_parit[k]
+                            if kielletyn_parin_indeksi == kurssiindeksi:
+                                valitaan = False
+                #Tsekataan, että jo ennalta tiedetyt oppilaskohtaiset rajoitteet eivät estä valintaa:
+                #Nämä oikeastaan poistetaan toivelistalta jo aluksi...että alla olevan tsekkauksen voisi poistaakin
+                if valitaan:
+                    if kurssiindeksi in oppilaat[oppilasindeksi].kielletyt_valinnat:
+                        valitaan = False
+                #Ja sitten se vaikein...
+                if oppilasindeksi not in kurssit[kurssiindeksi].ensisijaiset:
+                    if kurssit[kurssiindeksi].ensisijaisuusehto_pois == False:
+                        valitaan = False
+
+
+                #Tarkistukset tehty (toivottavasti). Jos valitaan on edelleen True niin tehdään valinta.
+
+                if valitaan:
+                    oppilaat[oppilasindeksi].kevään_kurssit.append(kurssiindeksi)
+                    to_add = kurssit[kurssiindeksi].opintopisteet_kevat
+                    oppilaat[oppilasindeksi].opintopisteet_kevät = oppilaat[oppilasindeksi].opintopisteet_kevät + to_add
+                    oppilaat[oppilasindeksi].opintopisteet_yht = oppilaat[oppilasindeksi].opintopisteet_yht + to_add
+                    kurssit[kurssiindeksi].oppilaat.append(oppilasindeksi)
+                    mieluisuus[oppilasindeksi].append(j)
+                    uusia_valintoja = uusia_valintoja+1
+                    kurssit[kurssiindeksi].opiskelijoita = len(kurssit[kurssiindeksi].oppilaat)
+                    if kurssit[kurssiindeksi].opiskelijoita >= kurssit[kurssiindeksi].max:
+                        kurssit[kurssiindeksi].full = True
+                    kurssit[kurssiindeksi].potentiaaliset_uudet.discard(oppilasindeksi)
+                    if oppilaat[oppilasindeksi].opintopisteet_yht >= opintopisteraja:
+                        oppilaat[oppilasindeksi].valinta_valmis = True
+                        for g in range(len(kurssit)):
+                            kurssit[g].potentiaaliset_uudet.discard(oppilasindeksi)
+                    for g in range(len(kurssit)):
+                        if kurssit[g].palkki_ID == kurssit[kurssiindeksi].palkki_ID:
+                            ehto = True
+                            if kurssit[g].vain_eka_viikko and kurssit[kurssiindeksi].vain_toka_viikko:
+                                ehto = False
+                            if kurssit[g].vain_toka_viikko and kurssit[kurssiindeksi].vain_eka_viikko:
+                                ehto = False
+                            if ehto:
+                                kurssit[g].potentiaaliset_uudet.discard(oppilasindeksi)
+
+                    for g in range(len(kurssit[kurssiindeksi].kielletyt_kevaan_parit)):
+                        kielletyn_indeksi = kurssit[kurssiindeksi].kielletyt_kevaan_parit[g]
+                        kurssit[kielletyn_indeksi].potentiaaliset_uudet.discard(oppilasindeksi)
+
+                    for g in range(len(kurssit)):
+                        x = kurssit[kurssiindeksi].potentiaaliset_uudet
+                        y = kurssit[kurssiindeksi].ensisijaiset
+                        z = kurssit[kurssiindeksi].erityishalukkaat
+                        cap = x.intersection(y,z)
+                        if len(cap) < 1:
+                            kurssit[g].ensisijaisuusehto_pois = True
+
+
+                    break
+    for i in range(opiskelijoita):
+        arvo = 0
+        if len(mieluisuus[i]) == 0:
+            arvo = 1000
+        else:
+            for j in range(len(mieluisuus[i])):
+                arvo = arvo + mieluisuus[i][j]
+            arvo = arvo/(len(mieluisuus[i]))
+        r = 0.01 * random.random()
+        arvo = arvo+r
+        mieluisuusarvot[i] = arvo
+
+    if uusia_valintoja == 0:
+        cont = False
+    if kierroslaskuri > 10:
+        cont = False
+
+    kierroslaskuri = kierroslaskuri +1
+
+#Sitten pitäisi vielä tulostaa itse valinnat.
+
+palkkinimet = ["Palkki 1", "Palkki 2", "Palkki 3", "Palkki 4", "Palkki 5", "Lukkarin ulkopuoliset"]
+palkki_IDt = [1,2,3,4,5,999]
+palkit = []
+for p in range(len(palkkinimet)):
+    uusi_palkki = palkki(palkki_IDt[p], palkkinimet[p])
+    for i in range(len(kurssit)):
+        if kurssit[i].palkki_ID == palkki_IDt[p]:
+            uusi_palkki.kurssit.append(i)
+    palkit.append(uusi_palkki)
+
+for p in range(len(kurssit)):
+    for i in range(len(kurssit[p].oppilaat)):
+        indeksi = kurssit[p].oppilaat[i]
+        kurssit[p].oppilaat_nimet.append(oppilaat[indeksi].kokonimi)
+
+#oppilas-olion palkkivalinnat_nimet on vain sitä varten mitä exceliin tulostetaan
+#oppilas.palkkivalinnat_nimet[k] on palkit[k]-palkissa oppilaalla olevan kurssin (tai kurssien) nimet.
+#Jos palkissa (koskee palkkia 5) on useampi kurssi, niin nimien väliin laitetaan vain " ja ", nimi on siis edelleen
+#vain yksi merkkijono
+
+for p in range(len(oppilaat)):
+    oppilaat[p].palkkivalinnat_nimet = []
+    for k in range(len(palkit)):
+        oppilaat[p].palkkivalinnat_nimet.append("-")
+    for k in range(len(oppilaat[p].kevaan_kurssit)):
+        kurssi_indeksi = oppilaat[p].kevaan_kurssit[k]
+        palkki_ID = kurssit[kurssi_indeksi].palkki_ID
+        for g in range(len(palkit)):
+            if palkit[g].ID == palkki_ID and oppilaat[p].palkkivalinnat_nimet[g] == "-":
+                oppilaat[p].palkkivalinnat_nimet[g] = kurssit[kurssi_indeksi].nimi
+            if palkit[g].ID == palkki_ID and not (oppilaat[p].palkkivalinnat_nimet[g] == "-"):
+                oppilaat[p].palkkivalinnat_nimet[g]= oppilaat[p].palkkivalinnat_nimet[g] + " ja " + kurssit[kurssi_indeksi].nimi
+
+datafreimit = []
+for i in range(len(kurssit)):
+    new_df = pd.DataFrame({kurssit[i].nimi: kurssit[i].oppilaat_nimet})
+    datafreimit.append(new_df)
+
+palkkidatafreimit = []
+
+for i in range(len(palkit)):
+    df = pd.DataFrame()
+    for k in range(len(palkit[i].kurssit)):
+        indeksi = palkit[i].kurssit[k]
+        to_add = datafreimit[indeksi]
+        df = pd.concat([df, to_add], axis = 1)
+    palkkidatafreimit.append(df)
+
+palkkidatafreimit[0].to_excel(r'C:\Testitiedostoja Pythonille\output_kevat.xlsx', index = False, sheet_name= palkit[0].nimi)
+for i in range(1,len(palkkidatafreimit)):
+    to_add = palkkidatafreimit[i]
+    with pd.ExcelWriter(r'C:\Testitiedostoja Pythonille\output.xlsx', engine='openpyxl', mode='a') as writer:
+        to_add.to_excel(writer, index= False, sheet_name= palkit[i].nimi)
+
+aakkoset = ['A','B','C','D','E','F','G','H','I','J']
+workbook = openpyxl.load_workbook(r'C:\Testitiedostoja Pythonille\output_kevat.xlsx')
+for i in range(len(palkit)):
+    sheet = workbook[palkit[i].nimi]
+    for col in aakkoset:
+        sheet.column_dimensions[col].width = 40
+workbook.save(r'C:\Testitiedostoja Pythonille\output_kevat.xlsx')
+
+nimet = []
+linjat = []
+opintopisteet_syksy = []
+opintopisteet_kevat = []
+palkkivalinnat = []
+toiveet = []
+for i in range(len(palkit)):
+    palkkivalinnat[i] = []
+    for k in range(len(oppilaat)):
+        to_add = oppilaat[k].palkkivalinnat_nimet[i]
+        palkkivalinnat[i].append(to_add)
+
+for i in range(len(oppilaat)):
+    nimet.append(oppilaat[i].kokonimi)
+for i in range(len(oppilaat)):
+    linjat.append(oppilaat[i].linja)
+for i in range(len(oppilaat)):
+    opintopisteet_syksy.append(oppilaat[i].opintopisteet_syksy)
+for i in range(len(oppilaat)):
+    opintopisteet_kevat.append(oppilaat[i].opintopisteet_kevat)
+for i in range(len(oppilaat)):
+    to_add = ""
+    if len(oppilaat[i].toivelista_kevat)>0:
+        to_add = str(oppilaat[i].toivelista_kevat[0])
+        for j in range(1,len(oppilaat[i].toivelista_kevat)):
+            to_add = to_add + "," + oppilaat[i].toivelista_kevat[j]
+    toiveet.append(to_add)
+
+DF = pd.DataFrame({"Nimi": nimet})
+new_df = pd.DataFrame({"Opintopisteet syksy": opintopisteet_syksy})
+DF = pd.concat([DF, new_df], axis =1)
+new_df = pd.DataFrame({"Opintopisteet kevät": opintopisteet_kevat})
+DF = pd.concat([DF, new_df], axis =1)
+new_df = pd.DataFrame({"Linja": linjat})
+DF = pd.concat([DF, new_df], axis =1)
+for k in range(len(palkit)):
+    new_df = pd.DataFrame({palkit[k].nimi: palkkivalinnat[k]})
+    DF = pd.concat([DF, new_df], axis=1)
+new_df = pd.DataFrame({"Toivelista": toiveet})
+DF = pd.concat([DF, new_df], axis =1)
+
+DF.to_excel(r'C:\Testitiedostoja Pythonille\output2_kevat.xlsx', index = False, sheet_name="Opiskelijoiden kurssit")
+
+aakkoset1 = ['A','B','C','D']
+aakkoset2 = ['E','F','G','H','I']
+workbook = openpyxl.load_workbook(r'C:\Testitiedostoja Pythonille\output2_kevat.xlsx')
+sheet = workbook["Opiskelijoiden kurssit"]
+for col in aakkoset1:
+    sheet.column_dimensions[col].width = 20
+for col in aakkoset2:
+    sheet.column_dimensions[col].width = 40
+sheet.column_dimensions['I'].width = 80
+workbook.save(r'C:\Testitiedostoja Pythonille\output2_kevat.xlsx')
