@@ -1,0 +1,33 @@
+import numpy as np
+from timeit import default_timer as timer
+import random
+import pandas as pd
+import openpyxl
+import xlsxwriter
+import copy
+
+df = pd.read_excel(r'C:\Testitiedostoja Pythonille\Valinnaisainevalinnatsyksy2022B.xlsx')
+linjadatafreimit = []
+
+linjanimet = ["Luonnontiede", "Yrittäjyys", "Viestintä", "Kansainvälisyys", "Musiikki", "Kotitalous", "Tekninen ", "Kieli"]
+for linja in linjanimet:
+    newdf = df[df["Linja"]==linja]
+    linjadatafreimit.append(newdf)
+
+for i in range(len(linjadatafreimit)):
+    print(len(linjadatafreimit[i].index))
+
+linjadatafreimit[0].to_excel(r'C:\Testitiedostoja Pythonille\oppilastiedotjoulu2022.xlsx', index = False, sheet_name="Luonnontiede")
+for i in range(1,len(linjadatafreimit)):
+    to_add = linjadatafreimit[i]
+    with pd.ExcelWriter(r'C:\Testitiedostoja Pythonille\oppilastiedotjoulu2022.xlsx', engine='openpyxl', mode='a') as writer:
+        to_add.to_excel(writer, index= False, sheet_name= linjanimet[i])
+
+
+aakkoset = ['A','B','C','D','E','F','G','H','I','J']
+workbook = openpyxl.load_workbook(r'C:\Testitiedostoja Pythonille\oppilastiedotjoulu2022.xlsx')
+for i in range(len(linjanimet)):
+    sheet = workbook[linjanimet[i]]
+    for col in aakkoset:
+        sheet.column_dimensions[col].width = 40
+workbook.save(r'C:\Testitiedostoja Pythonille\oppilastiedotjoulu2022.xlsx')
