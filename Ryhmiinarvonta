@@ -1,0 +1,60 @@
+import numpy as np
+from timeit import default_timer as timer
+import random
+import pandas as pd
+import openpyxl
+import xlsxwriter
+import copy
+import math
+
+ryhmat = ['Tiimi 1', 'Tiimi 2', 'Tiimi 3', 'Tiimi 4', 'Tiimi 5']
+Nimet = ['Veikko','Viola','Maria','Alinda',\
+        'Sanni','Johannes','Lauri','Helmi', 'Veikka', 'Aslak', 'Veeti T', 'Inka S','Inka A','Marius','Valtteri','Veeti M','Liisi']
+
+#Nimet = ['Olivia', 'Ruut', 'Iiris', 'Klaudia', 'Kastanja','Elmeri','Elina','Minea',\
+#        'Aino','Matias','Aale','Katriina', 'Helmi', 'Eerika', 'Ingela', 'Anton','Hilma','Matti','Ilona','Iisa','Tytti','Taru','Jonas']
+
+lukumaarat = []
+#alustetaan lukumäärät:
+for i in range(len(ryhmat)):
+    lukumaarat.append(0)
+#Luodaan lopulliset lukumäärät:
+laskuri = 0
+ryhma_indeksi = 0
+sijoitettavia = len(Nimet)
+max_ryhma_indeksi = len(ryhmat)-1
+for i in range(sijoitettavia):
+    lukumaarat[ryhma_indeksi]=lukumaarat[ryhma_indeksi]+1
+    ryhma_indeksi=ryhma_indeksi+1
+    if ryhma_indeksi > max_ryhma_indeksi:
+        ryhma_indeksi=0
+
+random.shuffle(Nimet)
+
+ryhma_indeksit = []
+ryhma_indeksi = 0
+apuindeksi = 0
+taynna = False
+for i in range(len(Nimet)):
+    if i > apuindeksi + lukumaarat[ryhma_indeksi]-1:
+        apuindeksi = i
+        ryhma_indeksi = ryhma_indeksi+1
+    ryhma_indeksit.append(ryhma_indeksi)
+
+tiimit = []
+for i in range(len(ryhmat)):
+    tiimit.append([])
+
+for k in range(len(ryhma_indeksit)):
+    tiimit[ryhma_indeksit[k]].append(Nimet[k])
+
+print(" ")
+for p in range(len(tiimit)):
+    merkkijono = ""
+    for g in range(len(tiimit[p])):
+        merkkijono = merkkijono + tiimit[p][g]
+        if g < len(tiimit[p])-1:
+            merkkijono = merkkijono + " , "
+    print("Ryhmän "+ryhmat[p]+" jäsenet ovat:")
+    print(merkkijono)
+    print(" ")
