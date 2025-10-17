@@ -1,0 +1,54 @@
+import tkinter as tk
+from tkinter import ttk
+import random
+
+# Funktio, joka piirtää pallot annetun määrän ja koon mukaan
+def piirra_pallot():
+    try:
+        maara = int(maara_var.get())
+        koko = int(koko_var.get())
+    except ValueError:
+        return
+
+    canvas.delete("all")
+    leveys = canvas.winfo_width()
+    korkeus = canvas.winfo_height()
+
+    for _ in range(maara):
+        x = random.randint(0, leveys - koko)
+        y = random.randint(0, korkeus - koko)
+        canvas.create_oval(x, y, x + koko, y + koko, fill="blue")
+
+# Luo pääikkuna
+root = tk.Tk()
+root.title("Pallojen säätäjä")
+
+# Parametrien syöttökentät
+param_frame = ttk.Frame(root)
+param_frame.pack(pady=10)
+
+# Pallojen määrä
+maara_label = ttk.Label(param_frame, text="Pallojen määrä:")
+maara_label.grid(row=0, column=0, padx=5)
+maara_var = tk.StringVar(value="10")
+maara_entry = ttk.Entry(param_frame, textvariable=maara_var, width=10)
+maara_entry.grid(row=0, column=1, padx=5)
+
+# Pallojen koko
+koko_label = ttk.Label(param_frame, text="Pallojen koko:")
+koko_label.grid(row=0, column=2, padx=5)
+koko_var = tk.StringVar(value="30")
+koko_entry = ttk.Entry(param_frame, textvariable=koko_var, width=10)
+koko_entry.grid(row=0, column=3, padx=5)
+
+# Piirtonappi
+piirra_button = ttk.Button(root, text="Piirrä pallot", command=piirra_pallot)
+piirra_button.pack(pady=5)
+
+# Piirtoalue
+canvas = tk.Canvas(root, width=400, height=300, bg="white")
+canvas.pack(pady=10)
+
+# Käynnistä käyttöliittymä
+root.mainloop()
+``
