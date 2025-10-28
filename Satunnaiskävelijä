@@ -1,0 +1,60 @@
+import turtle
+import random
+hannes = turtle.Turtle()
+hannes.shape("turtle")
+hannes.hideturtle()
+ympyra = turtle.Turtle()
+ympyra.hideturtle()
+ympyra.color("purple")
+ympyra.penup()
+ympyra.goto(0,-100)
+ympyra.pendown()
+ympyra.circle(100)
+laskuri2 = turtle.Turtle()
+laskuri3=turtle.Turtle()
+laskuri2.penup()
+laskuri3.penup()
+laskuri2.hideturtle()
+laskuri3.hideturtle()
+laskuri2.goto(150,150)
+laskuri3.goto(-150,150)
+laskuri2.pendown()
+laskuri3.pendown()
+laskuri2.write("Askelia: ")
+laskuri3.write("Törmäyksiä: "+"              Askelia keskimäärin:")
+hannes.speed(100)
+hannes.color(200,100,0)
+hannes.pendown()
+laskuri = 0
+kierrokset = 0
+tormauksia = 0
+tormaukset = []
+while True:
+  laskuri = 0
+  kierrokset = 0
+  while True:
+    hannes.forward(10)
+    hannes.setheading(random.randint(0,360))
+    laskuri = laskuri +1
+    hannes.color(10*kierrokset%255, 6*kierrokset%255, 3*kierrokset%255)
+    kierrokset = kierrokset + 1
+    laskuri2.clear()
+    laskuri2.write("Askelia: "+str(kierrokset))
+    if laskuri > 30:
+      laskuri =0
+    if hannes.distance(0,0)>100:
+      tormauksia =tormauksia +1
+      tormaukset.append(kierrokset)
+      hannes.clear()
+      break
+  summa = 0
+  for luku in tormaukset:
+    summa = summa+luku
+  laskuri3.clear()
+  keskimaarin = summa/(len(tormaukset))
+  laskuri3.write("Törmäyksiä: "+str(tormauksia)+"              Askelia keskimäärin:"+str(keskimaarin))
+  hannes.penup()
+  hannes.hideturtle()
+  hannes.goto(0,0)
+  #hannes.showturtle()
+  hannes.pendown()
